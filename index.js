@@ -117,11 +117,11 @@ async function reloadChatSafe() {
 
 async function loadRegexPacks() {
   const packFiles = [
-    "thinking-cleanup",
-    "think-cleanup",
-    "infobloc",
-    "buttons-panel",
-    "html-cleanup"
+    "regex_thinking",
+    "regex_think",
+    "regex_infobloc",
+    "regex_buttons_panel",
+    "regex_HTML"
   ];
 
   for (const file of packFiles) {
