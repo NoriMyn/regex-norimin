@@ -2,12 +2,6 @@
 
 > Удобный набор регексов для **SillyTavern**, который помогает очищать контекст от лишних служебных элементов и держать генерацию в порядке.
 
-<p align="center">
-  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/NoriMyn/regex-norimyn?style=for-the-badge">
-  <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/NoriMyn/regex-norimyn?style=for-the-badge">
-  <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/NoriMyn/regex-norimyn?style=for-the-badge">
-</p>
-
 ---
 
 ## ✨ Возможности
