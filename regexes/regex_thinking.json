@@ -1,6 +1,6 @@
 {
     "id": "73661c14-cfb0-47b9-86b7-768fb53387b3",
-    "scriptName": "Nori Thinking Cleanup (Optional)",
+    "scriptName": "Thinking Cleanup",
     "findRegex": "<thinking>((.|\\n)*)<\\/thinking>",
     "replaceString": "  ",
     "trimStrings": [],
