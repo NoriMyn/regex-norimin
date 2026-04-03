@@ -1,6 +1,6 @@
 {
     "id": "73661c14-cfb0-47b9-86b7-768fb53387b3",
-    "scriptName": "Thinking Cleanup",
+    "scriptName": "Очистка thinking",
     "findRegex": "<thinking>((.|\\n)*)<\\/thinking>",
     "replaceString": "  ",
     "trimStrings": [],
