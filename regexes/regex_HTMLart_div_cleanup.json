@@ -1,6 +1,6 @@
 {
     "id": "eb739cbf-c5b7-41cc-8a36-1f70b12f31fb",
-    "scriptName": "Art DIV Cleanup",
+    "scriptName": "HTML Cleanup",
     "findRegex": "/\\s*<div[^>]*>[\\s\\S]*?<\\/div>\\s*/ims",
     "replaceString": "",
     "trimStrings": [],
