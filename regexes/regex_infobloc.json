@@ -1,6 +1,6 @@
 {
     "id": "29b89155-d616-46e1-840a-07d7187253b3",
-    "scriptName": "Regex_infobloc",
+    "scriptName": "infobloc",
     "findRegex": "◈NORICORE◈[\\s\\S]*?◈/NORICORE◈",
     "replaceString": "",
     "trimStrings": [],
