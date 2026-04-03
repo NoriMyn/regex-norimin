@@ -7,7 +7,6 @@ if (!window.RegexManagerData) {
   window.RegexManagerData = {
     packs: {},
     enabled: [],
-    active: true,
     collapsed: false
   };
 }
@@ -30,37 +29,17 @@ jQuery(async () => {
       window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
         ? extension_settings[extensionName].enabled
         : [];
-      window.RegexManagerData.active = extension_settings[extensionName].active !== false;
       window.RegexManagerData.collapsed = extension_settings[extensionName].collapsed === true;
     }
 
     await loadRegexPacks();
     renderPackList();
-    updateToggleButton();
     updateCollapseState();
     cleanupManagedRegexes();
 
-    if (window.RegexManagerData.active) {
-      for (const packId of window.RegexManagerData.enabled) {
-        injectRegexPack(packId);
-      }
+    for (const packId of window.RegexManagerData.enabled) {
+      injectRegexPack(packId);
     }
-
-    $("#regex-manager-toggle").on("click", async function () {
-      window.RegexManagerData.active = !window.RegexManagerData.active;
-
-      if (window.RegexManagerData.active) {
-        for (const packId of window.RegexManagerData.enabled) {
-          injectRegexPack(packId);
-        }
-      } else {
-        removeAllManagedRegexes();
-      }
-
-      updateToggleButton();
-      saveSettings();
-      await reloadChatSafe();
-    });
 
     $("#regex-manager-collapse").on("click", function () {
       window.RegexManagerData.collapsed = !window.RegexManagerData.collapsed;
@@ -73,18 +52,6 @@ jQuery(async () => {
     console.error("[Regex Manager] stack:", e?.stack);
   }
 });
-
-function updateToggleButton() {
-  const btn = $("#regex-manager-toggle");
-
-  if (window.RegexManagerData.active) {
-    btn.text("ВКЛ").removeClass("inactive").addClass("active");
-  } else {
-    btn.text("ВЫКЛ").removeClass("active").addClass("inactive");
-  }
-
-  $("#regex-manager-list input[type=checkbox]").prop("disabled", !window.RegexManagerData.active);
-}
 
 function updateCollapseState() {
   const body = $("#regex-manager-body");
@@ -102,7 +69,6 @@ function updateCollapseState() {
 function saveSettings() {
   extension_settings[extensionName] = {
     enabled: [...window.RegexManagerData.enabled],
-    active: window.RegexManagerData.active,
     collapsed: window.RegexManagerData.collapsed
   };
   saveSettingsDebounced();
@@ -159,10 +125,9 @@ function renderPackList() {
     const html = `
       <div class="regex-pack">
         <div class="regex-pack-top">
-          <input type="checkbox" id="${inputId}" data-pack="${escapeHtml(id)}" ${enabled ? "checked" : ""} ${!window.RegexManagerData.active ? "disabled" : ""}>
+          <input type="checkbox" id="${inputId}" data-pack="${escapeHtml(id)}" ${enabled ? "checked" : ""}>
           <label for="${inputId}" class="regex-pack-name">${escapeHtml(pack.scriptName)}</label>
         </div>
-        <div class="regex-pack-desc">${escapeHtml(pack.findRegex)}</div>
       </div>
     `;
 
@@ -176,9 +141,7 @@ function renderPackList() {
     if (checked) {
       if (!window.RegexManagerData.enabled.includes(packId)) {
         window.RegexManagerData.enabled.push(packId);
-        if (window.RegexManagerData.active) {
-          injectRegexPack(packId);
-        }
+        injectRegexPack(packId);
       }
     } else {
       window.RegexManagerData.enabled = window.RegexManagerData.enabled.filter(p => p !== packId);
@@ -241,12 +204,10 @@ function cleanupManagedRegexes() {
 
   const validIds = new Set();
 
-  if (window.RegexManagerData.active) {
-    for (const packId of window.RegexManagerData.enabled) {
-      const script = window.RegexManagerData.packs[packId];
-      if (script?.id) {
-        validIds.add(`rgxm-${packId}-${script.id}`);
-      }
+  for (const packId of window.RegexManagerData.enabled) {
+    const script = window.RegexManagerData.packs[packId];
+    if (script?.id) {
+      validIds.add(`rgxm-${packId}-${script.id}`);
     }
   }
 
@@ -255,19 +216,6 @@ function cleanupManagedRegexes() {
     if (!item?.id || !item.id.startsWith("rgxm-")) continue;
 
     if (!validIds.has(item.id)) {
-      extension_settings.regex.splice(i, 1);
-    }
-  }
-
-  saveSettingsDebounced();
-}
-
-function removeAllManagedRegexes() {
-  if (!Array.isArray(extension_settings.regex)) return;
-
-  for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
-    const item = extension_settings.regex[i];
-    if (item?.id && item.id.startsWith("rgxm-")) {
       extension_settings.regex.splice(i, 1);
     }
   }
