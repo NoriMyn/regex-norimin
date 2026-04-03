@@ -1,0 +1,10 @@
+﻿{
+  "display_name": "Regex Manager",
+  "loading_order": 1,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "Naoki",
+  "version": "1.0.0"
+}
