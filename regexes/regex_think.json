@@ -1,6 +1,6 @@
 {
     "id": "bcea9b5f-0d89-48ba-8b17-2a3ca4572f1c",
-    "scriptName": "Think Cleanup",
+    "scriptName": "Очистка think",
     "findRegex": "/[`\\s]*[\\[\\<]think[\\>\\]].*[\\[\\<]\\/think[\\>\\]][`\\s]*/ims",
     "replaceString": "",
     "trimStrings": [],
