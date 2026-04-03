@@ -1,8 +1,8 @@
-﻿import { saveSettingsDebounced } from "../../../../script.js";
+import { saveSettingsDebounced } from "../../../../script.js";
 import { extension_settings } from "../../../extensions.js";
 import { callGenericPopup, POPUP_TYPE } from "../../../popup.js";
 
-const extensionName = "regex-norimin";
+const extensionName = "regex-norimyn";
 
 if (!window.RegexManagerData) {
   window.RegexManagerData = {
@@ -13,25 +13,18 @@ if (!window.RegexManagerData) {
 }
 
 jQuery(async () => {
-  console.log("[Regex Manager] Start...");
-
   try {
     const settingsHtml = await $.get(`/scripts/extensions/third-party/${extensionName}/settings.html`);
     $("#extensions_settings2").append(settingsHtml);
 
     if (extension_settings[extensionName]) {
-      window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
-        ? extension_settings[extensionName].enabled
-        : [];
+      window.RegexManagerData.enabled = extension_settings[extensionName].enabled || [];
       window.RegexManagerData.active = extension_settings[extensionName].active !== false;
     }
 
     await loadRegexPacks();
-    sanitizeEnabledPacks();
     renderPackList();
     updateToggleButton();
-
-    cleanupManagedRegexes();
 
     if (window.RegexManagerData.active) {
       for (const packId of window.RegexManagerData.enabled) {
@@ -39,54 +32,31 @@ jQuery(async () => {
       }
     }
 
-    $("#regex-manager-toggle").on("click", async function () {
+    $("#regex-manager-toggle").on("click", async function() {
       window.RegexManagerData.active = !window.RegexManagerData.active;
 
       if (window.RegexManagerData.active) {
         for (const packId of window.RegexManagerData.enabled) {
           injectRegexPack(packId);
         }
-        toastr.success("Regex Manager enabled");
       } else {
-        removeAllManagedRegexes();
-        toastr.info("Regex Manager disabled");
-      }
-
-      updateToggleButton();
-      saveSettings();
-      await reloadChatSafe();
-    });
-
-    $("#regex-manager-enable-all").on("click", async function () {
-      window.RegexManagerData.enabled = Object.keys(window.RegexManagerData.packs);
-
-      if (window.RegexManagerData.active) {
         for (const packId of window.RegexManagerData.enabled) {
-          injectRegexPack(packId);
+          removeRegexPack(packId);
         }
       }
 
-      renderPackList();
       updateToggleButton();
       saveSettings();
-      await reloadChatSafe();
+
+      const ctx = SillyTavern.getContext();
+      if (ctx.reloadCurrentChat) {
+        await ctx.reloadCurrentChat();
+      }
     });
 
-    $("#regex-manager-disable-all").on("click", async function () {
-      removeAllManagedRegexes();
-      window.RegexManagerData.enabled = [];
-
-      renderPackList();
-      updateToggleButton();
-      saveSettings();
-      await reloadChatSafe();
-    });
-
-    $("#regex-manager-debug").on("click", function () {
+    $("#regex-manager-debug").on("click", function() {
       openDebugger();
     });
-
-    console.log("[Regex Manager] Ready");
   } catch (e) {
     console.error("[Regex Manager] Init error:", e);
   }
@@ -96,99 +66,28 @@ function updateToggleButton() {
   const btn = $("#regex-manager-toggle");
 
   if (window.RegexManagerData.active) {
-    btn.text("Р’РљР›").removeClass("inactive").addClass("active");
+    btn.text("ВКЛ").removeClass("inactive").addClass("active");
   } else {
-    btn.text("Р’Р«РљР›").removeClass("active").addClass("inactive");
+    btn.text("ВЫКЛ").removeClass("active").addClass("inactive");
   }
 
   $("#regex-manager-list input[type=checkbox]").prop("disabled", !window.RegexManagerData.active);
 }
 
-function saveSettings() {
-  extension_settings[extensionName] = {
-    enabled: [...window.RegexManagerData.enabled],
-    active: window.RegexManagerData.active
-  };
-  saveSettingsDebounced();
-}
-
-function sanitizeEnabledPacks() {
-  const existing = new Set(Object.keys(window.RegexManagerData.packs));
-  window.RegexManagerData.enabled = window.RegexManagerData.enabled.filter(id => existing.has(id));
-}
-
-async function reloadChatSafe() {
-  const ctx = SillyTavern.getContext();
-  if (ctx && typeof ctx.reloadCurrentChat === "function") {
-    await ctx.reloadCurrentChat();
-  }
-}
-
 async function loadRegexPacks() {
-  const indexUrl = `/scripts/extensions/third-party/${extensionName}/regexes/index.json`;
-
-  let packFiles = [];
-  try {
-    const response = await fetch(indexUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to load ${indexUrl}`);
-    }
-    packFiles = await response.json();
-  } catch (e) {
-    console.error("[Regex Manager] index.json load error:", e);
-    return;
-  }
-
-  if (!Array.isArray(packFiles)) {
-    console.error("[Regex Manager] index.json must contain an array");
-    return;
-  }
+  const packFiles = [
+    "nori"
+  ];
 
   for (const file of packFiles) {
     try {
       const response = await fetch(`/scripts/extensions/third-party/${extensionName}/regexes/${file}.json`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
       const pack = await response.json();
-
-      if (!validatePack(file, pack)) {
-        console.warn(`[Regex Manager] Invalid pack skipped: ${file}`);
-        continue;
-      }
-
       window.RegexManagerData.packs[file] = pack;
-      console.log(`[Regex Manager] Loaded pack: ${pack.name} (${pack.scripts.length})`);
     } catch (e) {
-      console.error(`[Regex Manager] Error loading ${file}:`, e);
+      console.error(`[Regex Manager] Load error ${file}:`, e);
     }
   }
-}
-
-function validatePack(file, pack) {
-  if (!pack || typeof pack !== "object") return false;
-  if (typeof pack.name !== "string" || !pack.name.trim()) return false;
-  if (typeof pack.description !== "string") return false;
-  if (!Array.isArray(pack.scripts)) return false;
-
-  const ids = new Set();
-
-  for (const script of pack.scripts) {
-    if (!script || typeof script !== "object") return false;
-    if (typeof script.id !== "string" || !script.id.trim()) return false;
-    if (ids.has(script.id)) {
-      console.warn(`[Regex Manager] Duplicate script.id in ${file}: ${script.id}`);
-      return false;
-    }
-    ids.add(script.id);
-
-    if (typeof script.scriptName !== "string") return false;
-    if (typeof script.findRegex !== "string") return false;
-    if (typeof script.replaceString !== "string") return false;
-  }
-
-  return true;
 }
 
 function renderPackList() {
@@ -197,23 +96,23 @@ function renderPackList() {
 
   for (const [id, pack] of Object.entries(window.RegexManagerData.packs)) {
     const enabled = window.RegexManagerData.enabled.includes(id);
-    const inputId = `regex-pack-${escapeId(id)}`;
+    const inputId = `regex-pack-${id}`;
 
     const html = `
       <div class="regex-pack">
         <div class="regex-pack-top">
-          <input type="checkbox" id="${inputId}" data-pack="${escapeHtml(id)}" ${enabled ? "checked" : ""} ${!window.RegexManagerData.active ? "disabled" : ""}>
+          <input type="checkbox" id="${inputId}" data-pack="${id}" ${enabled ? "checked" : ""} ${!window.RegexManagerData.active ? "disabled" : ""}>
           <label for="${inputId}" class="regex-pack-name">${escapeHtml(pack.name)}</label>
         </div>
         <div class="regex-pack-desc">${escapeHtml(pack.description)}</div>
-        <div class="regex-pack-count">${pack.scripts.length} regex rules</div>
+        <div class="regex-pack-count">${pack.scripts.length} регексов</div>
       </div>
     `;
 
     container.append(html);
   }
 
-  container.find("input[type=checkbox]").on("change", async function () {
+  container.find("input[type=checkbox]").on("change", async function() {
     const packId = $(this).data("pack");
     const checked = $(this).is(":checked");
 
@@ -230,8 +129,20 @@ function renderPackList() {
     }
 
     saveSettings();
-    await reloadChatSafe();
+
+    const ctx = SillyTavern.getContext();
+    if (ctx.reloadCurrentChat) {
+      await ctx.reloadCurrentChat();
+    }
   });
+}
+
+function saveSettings() {
+  extension_settings[extensionName] = {
+    enabled: window.RegexManagerData.enabled,
+    active: window.RegexManagerData.active
+  };
+  saveSettingsDebounced();
 }
 
 function injectRegexPack(packId) {
@@ -242,20 +153,18 @@ function injectRegexPack(packId) {
     extension_settings.regex = [];
   }
 
-  let added = 0;
-
   for (const script of pack.scripts) {
     const newId = `rgxm-${packId}-${script.id}`;
-    const exists = extension_settings.regex.some(r => r.id === newId);
-    if (exists) continue;
+    const existingIndex = extension_settings.regex.findIndex(r => r.id === newId);
+    if (existingIndex !== -1) continue;
 
     extension_settings.regex.push({
       id: newId,
       scriptName: `[RM] ${script.scriptName}`,
       findRegex: script.findRegex,
       replaceString: script.replaceString,
-      trimStrings: Array.isArray(script.trimStrings) ? script.trimStrings : [],
-      placement: Array.isArray(script.placement) ? script.placement : [1, 2, 6],
+      trimStrings: script.trimStrings || [],
+      placement: script.placement || [1, 2, 6],
       disabled: false,
       markdownOnly: script.markdownOnly ?? true,
       promptOnly: script.promptOnly ?? false,
@@ -264,70 +173,18 @@ function injectRegexPack(packId) {
       minDepth: script.minDepth ?? null,
       maxDepth: script.maxDepth ?? null
     });
-
-    added++;
   }
 
-  if (added > 0) {
-    console.log(`[Regex Manager] Added ${added} regex from ${packId}`);
-    saveSettingsDebounced();
-  }
+  saveSettingsDebounced();
 }
 
 function removeRegexPack(packId) {
   if (!Array.isArray(extension_settings.regex)) return;
 
   const prefix = `rgxm-${packId}-`;
-  let removed = 0;
 
   for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
-    const item = extension_settings.regex[i];
-    if (item?.id && item.id.startsWith(prefix)) {
-      extension_settings.regex.splice(i, 1);
-      removed++;
-    }
-  }
-
-  if (removed > 0) {
-    console.log(`[Regex Manager] Removed ${removed} regex from ${packId}`);
-    saveSettingsDebounced();
-  }
-}
-
-function cleanupManagedRegexes() {
-  if (!Array.isArray(extension_settings.regex)) return;
-
-  const validIds = new Set();
-
-  if (window.RegexManagerData.active) {
-    for (const packId of window.RegexManagerData.enabled) {
-      const pack = window.RegexManagerData.packs[packId];
-      if (!pack) continue;
-
-      for (const script of pack.scripts) {
-        validIds.add(`rgxm-${packId}-${script.id}`);
-      }
-    }
-  }
-
-  for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
-    const item = extension_settings.regex[i];
-    if (!item?.id || !item.id.startsWith("rgxm-")) continue;
-
-    if (!validIds.has(item.id)) {
-      extension_settings.regex.splice(i, 1);
-    }
-  }
-
-  saveSettingsDebounced();
-}
-
-function removeAllManagedRegexes() {
-  if (!Array.isArray(extension_settings.regex)) return;
-
-  for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
-    const item = extension_settings.regex[i];
-    if (item?.id && item.id.startsWith("rgxm-")) {
+    if (extension_settings.regex[i].id && extension_settings.regex[i].id.startsWith(prefix)) {
       extension_settings.regex.splice(i, 1);
     }
   }
@@ -350,49 +207,46 @@ async function openDebugger() {
   const html = `
     <div class="regex-manager-debugger">
       <div class="debugger-section">
-        <h4>Active regex (${allScripts.length})</h4>
+        <h4>Активные регексы (${allScripts.length})</h4>
         <div class="debugger-rules">
-          ${
-            allScripts.length === 0
-              ? '<div class="no-rules">No active regex</div>'
-              : allScripts.map((s, i) => `
-                <div class="debugger-rule">
-                  <span class="rule-num">${i + 1}</span>
-                  <span class="rule-name">${escapeHtml(s.scriptName)}</span>
-                  <code class="rule-regex">${escapeHtml(shorten(s.findRegex, 40))}</code>
-                </div>
-              `).join("")
+          ${allScripts.length === 0 ? '<div class="no-rules">Нет активных регексов</div>' :
+            allScripts.map((s, i) => `
+              <div class="debugger-rule">
+                <span class="rule-num">${i + 1}</span>
+                <span class="rule-name">${escapeHtml(s.scriptName)}</span>
+                <code class="rule-regex">${escapeHtml(String(s.findRegex).slice(0, 40))}${String(s.findRegex).length > 40 ? '...' : ''}</code>
+              </div>
+            `).join('')
           }
         </div>
       </div>
 
       <div class="debugger-section">
-        <h4>Test</h4>
+        <h4>Тест</h4>
         <div>
-          <label for="debug-input">Input text</label>
-          <textarea id="debug-input" class="text_pole" rows="5" placeholder="Paste text here..."></textarea>
+          <label for="debug-input">Текст для теста</label>
+          <textarea id="debug-input" class="text_pole" rows="4" placeholder="Вставь текст для теста..."></textarea>
         </div>
         <div class="debugger-buttons">
           <div>
-            <label for="debug-render">Render mode</label>
+            <label for="debug-render">Режим вывода</label>
             <select id="debug-render">
-              <option value="text">Text</option>
-              <option value="html">Safe HTML preview</option>
+              <option value="text">Как текст</option>
             </select>
           </div>
           <div>
-            <button id="debug-run" class="menu_button">Run</button>
+            <button id="debug-run" class="menu_button">Запустить</button>
           </div>
         </div>
       </div>
 
       <div class="debugger-section">
-        <h4>Result</h4>
+        <h4>Результат</h4>
         <div id="debug-output" class="debugger-output"></div>
       </div>
 
       <div class="debugger-section">
-        <h4>Steps</h4>
+        <h4>Пошаговая трансформация</h4>
         <div id="debug-steps" class="debugger-steps"></div>
       </div>
     </div>
@@ -400,13 +254,9 @@ async function openDebugger() {
 
   const popup = $(html);
 
-  popup.find("#debug-run").on("click", function () {
-    const input = String(popup.find("#debug-input").val() || "");
-
-    if (!input.trim()) {
-      toastr.warning("Enter test text");
-      return;
-    }
+  popup.find("#debug-run").on("click", function() {
+    const input = popup.find("#debug-input").val();
+    if (!input) return;
 
     let result = input;
     const steps = [];
@@ -436,23 +286,20 @@ async function openDebugger() {
 
     const stepsEl = popup.find("#debug-steps");
     if (steps.length === 0) {
-      stepsEl.html('<div class="no-changes">No regex matched</div>');
+      stepsEl.html('<div class="no-changes">Ни один регекс не сработал</div>');
     } else {
-      stepsEl.html(
-        steps.map(s => `
-          <div class="step ${s.error ? "step-error" : "step-ok"}">
-            <span class="step-name">${escapeHtml(s.name)}</span>
-            ${s.error
-              ? `<span class="step-error-msg">Error: ${escapeHtml(s.error)}</span>`
-              : `<span class="step-ok-msg">Matched</span>`
-            }
-          </div>
-        `).join("")
-      );
+      stepsEl.html(steps.map(s => `
+        <div class="step ${s.error ? 'step-error' : 'step-ok'}">
+          <span class="step-name">${escapeHtml(s.name)}</span>
+          ${s.error
+            ? `<span class="step-error-msg">Ошибка: ${escapeHtml(s.error)}</span>`
+            : '<span class="step-ok-msg">✓ Сработал</span>'}
+        </div>
+      `).join(''));
     }
   });
 
-  await callGenericPopup(popup, POPUP_TYPE.TEXT, "", { wide: true, large: true });
+  await callGenericPopup(popup, POPUP_TYPE.TEXT, '', { wide: true, large: true });
 }
 
 function buildRegexFromString(source) {
@@ -468,25 +315,8 @@ function buildRegexFromString(source) {
   return new RegExp(source);
 }
 
-function shorten(text, max) {
-  return text.length > max ? text.slice(0, max) + "..." : text;
-}
-
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = String(text);
   return div.innerHTML;
 }
-
-function escapeId(text) {
-  return String(text).replace(/[^a-zA-Z0-9\-_:.]/g, "_");
-}
-
-window.RegexManager = {
-  getPacks: () => window.RegexManagerData.packs,
-  getEnabled: () => window.RegexManagerData.enabled,
-  isActive: () => window.RegexManagerData.active,
-  inject: injectRegexPack,
-  remove: removeRegexPack,
-  debug: openDebugger
-};
