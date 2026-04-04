@@ -11,8 +11,8 @@ const PACK_FILES = [
   "regex_html"
 ];
 
-if (!window.RegexManagerData) {
-  window.RegexManagerData = {
+if (!window.NoriMynRegexManagerData) {
+  window.NoriMynRegexManagerData = {
     packs: {},
     enabled: []
   };
@@ -33,7 +33,7 @@ jQuery(async () => {
     target.append(settingsHtml);
 
     if (extension_settings[extensionName]) {
-      window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
+      window.NoriMynRegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
         ? extension_settings[extensionName].enabled
         : [];
     }
@@ -42,17 +42,17 @@ jQuery(async () => {
     renderPackList();
     cleanupManagedRegexes();
 
-    for (const packId of window.RegexManagerData.enabled) {
+    for (const packId of window.NoriMynRegexManagerData.enabled) {
       injectRegexPack(packId);
     }
   } catch (e) {
-    console.error("[Regex Manager] Init error:", e);
+    console.error("[NoriMyn Regex Manager] Init error:", e);
   }
 });
 
 function saveSettings() {
   extension_settings[extensionName] = {
-    enabled: [...window.RegexManagerData.enabled]
+    enabled: [...window.NoriMynRegexManagerData.enabled]
   };
   saveSettingsDebounced();
 }
@@ -65,7 +65,7 @@ async function reloadChatSafe() {
 }
 
 async function loadRegexPacks() {
-  window.RegexManagerData.packs = {};
+  window.NoriMynRegexManagerData.packs = {};
 
   for (const file of PACK_FILES) {
     try {
@@ -88,28 +88,28 @@ async function loadRegexPacks() {
         throw new Error(`Missing required fields in ${file}.json`);
       }
 
-      window.RegexManagerData.packs[file] = pack;
+      window.NoriMynRegexManagerData.packs[file] = pack;
     } catch (e) {
-      console.error(`[Regex Manager] Load error ${file}:`, e);
+      console.error(`[NoriMyn Regex Manager] Load error ${file}:`, e);
     }
   }
 }
 
 function renderPackList() {
-  const container = $("#regex-manager-list");
+  const container = $("#norimyn-regex-list");
   if (!container.length) return;
 
   container.empty();
 
-  for (const [id, pack] of Object.entries(window.RegexManagerData.packs)) {
-    const enabled = window.RegexManagerData.enabled.includes(id);
-    const inputId = `regex-pack-${escapeId(id)}`;
+  for (const [id, pack] of Object.entries(window.NoriMynRegexManagerData.packs)) {
+    const enabled = window.NoriMynRegexManagerData.enabled.includes(id);
+    const inputId = `norimyn-pack-${escapeId(id)}`;
 
     const html = `
-      <div class="regex-pack">
-        <div class="regex-pack-top">
+      <div class="norimyn-regex-pack">
+        <div class="norimyn-regex-pack-top">
           <input type="checkbox" id="${inputId}" data-pack="${escapeHtml(id)}" ${enabled ? "checked" : ""}>
-          <label for="${inputId}" class="regex-pack-name">${escapeHtml(pack.scriptName)}</label>
+          <label for="${inputId}" class="norimyn-regex-pack-name">${escapeHtml(pack.scriptName)}</label>
         </div>
       </div>
     `;
@@ -122,12 +122,12 @@ function renderPackList() {
     const checked = $(this).is(":checked");
 
     if (checked) {
-      if (!window.RegexManagerData.enabled.includes(packId)) {
-        window.RegexManagerData.enabled.push(packId);
+      if (!window.NoriMynRegexManagerData.enabled.includes(packId)) {
+        window.NoriMynRegexManagerData.enabled.push(packId);
         injectRegexPack(packId);
       }
     } else {
-      window.RegexManagerData.enabled = window.RegexManagerData.enabled.filter(p => p !== packId);
+      window.NoriMynRegexManagerData.enabled = window.NoriMynRegexManagerData.enabled.filter(p => p !== packId);
       removeRegexPack(packId);
     }
 
@@ -137,14 +137,14 @@ function renderPackList() {
 }
 
 function injectRegexPack(packId) {
-  const script = window.RegexManagerData.packs[packId];
+  const script = window.NoriMynRegexManagerData.packs[packId];
   if (!script) return;
 
   if (!Array.isArray(extension_settings.regex)) {
     extension_settings.regex = [];
   }
 
-  const newId = `rgxm-${packId}-${script.id}`;
+  const newId = `norimyn-rgxm-${packId}-${script.id}`;
   const exists = extension_settings.regex.some(r => r.id === newId);
   if (exists) return;
 
@@ -170,7 +170,7 @@ function injectRegexPack(packId) {
 function removeRegexPack(packId) {
   if (!Array.isArray(extension_settings.regex)) return;
 
-  const prefix = `rgxm-${packId}-`;
+  const prefix = `norimyn-rgxm-${packId}-`;
 
   for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
     const item = extension_settings.regex[i];
@@ -187,16 +187,16 @@ function cleanupManagedRegexes() {
 
   const validIds = new Set();
 
-  for (const packId of window.RegexManagerData.enabled) {
-    const script = window.RegexManagerData.packs[packId];
+  for (const packId of window.NoriMynRegexManagerData.enabled) {
+    const script = window.NoriMynRegexManagerData.packs[packId];
     if (script?.id) {
-      validIds.add(`rgxm-${packId}-${script.id}`);
+      validIds.add(`norimyn-rgxm-${packId}-${script.id}`);
     }
   }
 
   for (let i = extension_settings.regex.length - 1; i >= 0; i--) {
     const item = extension_settings.regex[i];
-    if (!item?.id || !item.id.startsWith("rgxm-")) continue;
+    if (!item?.id || !item.id.startsWith("norimyn-rgxm-")) continue;
 
     if (!validIds.has(item.id)) {
       extension_settings.regex.splice(i, 1);
