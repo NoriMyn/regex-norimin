@@ -14,8 +14,7 @@ const PACK_FILES = [
 if (!window.RegexManagerData) {
   window.RegexManagerData = {
     packs: {},
-    enabled: [],
-    collapsed: false
+    enabled: []
   };
 }
 
@@ -37,47 +36,23 @@ jQuery(async () => {
       window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
         ? extension_settings[extensionName].enabled
         : [];
-      window.RegexManagerData.collapsed = extension_settings[extensionName].collapsed === true;
     }
 
     await loadRegexPacks();
     renderPackList();
-    updateCollapseState();
     cleanupManagedRegexes();
 
     for (const packId of window.RegexManagerData.enabled) {
       injectRegexPack(packId);
     }
-
-    $("#regex-manager-collapse").off("click").on("click", function () {
-      window.RegexManagerData.collapsed = !window.RegexManagerData.collapsed;
-      updateCollapseState();
-      saveSettings();
-    });
   } catch (e) {
     console.error("[Regex Manager] Init error:", e);
   }
 });
 
-function updateCollapseState() {
-  const body = $("#regex-manager-body");
-  const btn = $("#regex-manager-collapse");
-
-  if (!body.length || !btn.length) return;
-
-  if (window.RegexManagerData.collapsed) {
-    body.addClass("collapsed");
-    btn.text("Развернуть");
-  } else {
-    body.removeClass("collapsed");
-    btn.text("Свернуть");
-  }
-}
-
 function saveSettings() {
   extension_settings[extensionName] = {
-    enabled: [...window.RegexManagerData.enabled],
-    collapsed: window.RegexManagerData.collapsed
+    enabled: [...window.RegexManagerData.enabled]
   };
   saveSettingsDebounced();
 }
