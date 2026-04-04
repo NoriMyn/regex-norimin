@@ -7,7 +7,8 @@ if (!window.RegexManagerData) {
   window.RegexManagerData = {
     packs: {},
     enabled: [],
-    collapsed: false
+    collapsed: false,
+    errors: []
   };
 }
 
@@ -90,9 +91,13 @@ async function loadRegexPacks() {
     "regex_HTML"
   ];
 
+  window.RegexManagerData.packs = {};
+  window.RegexManagerData.errors = [];
+
   for (const file of packFiles) {
     try {
       const response = await fetch(`/scripts/extensions/third-party/${extensionName}/regexes/${file}.json`);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -100,15 +105,16 @@ async function loadRegexPacks() {
       const pack = await response.json();
 
       if (!pack || typeof pack !== "object") {
-        throw new Error(`Invalid JSON in ${file}.json`);
+        throw new Error("Invalid JSON");
       }
 
       if (!pack.id || !pack.scriptName || typeof pack.findRegex !== "string") {
-        throw new Error(`Missing required fields in ${file}.json`);
+        throw new Error("Missing required fields");
       }
 
       window.RegexManagerData.packs[file] = pack;
     } catch (e) {
+      window.RegexManagerData.errors.push(`${file}: ${e.message}`);
       console.error(`[Regex Manager] Load error ${file}:`, e);
     }
   }
@@ -118,7 +124,28 @@ function renderPackList() {
   const container = $("#regex-manager-list");
   container.empty();
 
-  for (const [id, pack] of Object.entries(window.RegexManagerData.packs)) {
+  const entries = Object.entries(window.RegexManagerData.packs);
+
+  if (!entries.length) {
+    container.append(`
+      <div class="regex-pack">
+        <div class="regex-pack-name">Регексы не загрузились</div>
+        <div class="regex-manager-desc">${escapeHtml(window.RegexManagerData.errors.join(" | ") || "Не удалось загрузить файлы regexes")}</div>
+      </div>
+    `);
+    return;
+  }
+
+  if (window.RegexManagerData.errors.length) {
+    container.append(`
+      <div class="regex-pack">
+        <div class="regex-pack-name">Часть регексов не загрузилась</div>
+        <div class="regex-manager-desc">${escapeHtml(window.RegexManagerData.errors.join(" | "))}</div>
+      </div>
+    `);
+  }
+
+  for (const [id, pack] of entries) {
     const enabled = window.RegexManagerData.enabled.includes(id);
     const inputId = `regex-pack-${escapeId(id)}`;
 
