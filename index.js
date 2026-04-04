@@ -3,17 +3,26 @@ import { extension_settings } from "../../../extensions.js";
 
 const extensionName = "regex-norimyn";
 
+const PACK_FILES = [
+  "regex_thinking",
+  "regex_think",
+  "regex_infobloc",
+  "regex_buttons_panel",
+  "regex_HTML"
+];
+
 if (!window.RegexManagerData) {
   window.RegexManagerData = {
     packs: {},
     enabled: [],
-    collapsed: false,
-    errors: []
+    collapsed: false
   };
 }
 
 jQuery(async () => {
   try {
+    const settingsHtml = await $.get(`/scripts/extensions/third-party/${extensionName}/settings.html`);
+
     const target = $("#extensions_settings2").length
       ? $("#extensions_settings2")
       : $("#extensions_settings");
@@ -22,10 +31,7 @@ jQuery(async () => {
       throw new Error("Extensions settings container not found");
     }
 
-    const settingsHtml = await $.get(`/scripts/extensions/third-party/${extensionName}/settings.html`);
     target.append(settingsHtml);
-
-    showStatus("Инициализация...");
 
     if (extension_settings[extensionName]) {
       window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
@@ -34,12 +40,8 @@ jQuery(async () => {
       window.RegexManagerData.collapsed = extension_settings[extensionName].collapsed === true;
     }
 
-    showStatus("Загрузка регексов...");
     await loadRegexPacks();
-
-    showStatus("Отрисовка списка...");
     renderPackList();
-
     updateCollapseState();
     cleanupManagedRegexes();
 
@@ -47,33 +49,21 @@ jQuery(async () => {
       injectRegexPack(packId);
     }
 
-    $("#regex-manager-collapse").on("click", function () {
+    $("#regex-manager-collapse").off("click").on("click", function () {
       window.RegexManagerData.collapsed = !window.RegexManagerData.collapsed;
       updateCollapseState();
       saveSettings();
     });
   } catch (e) {
-    console.error("[Regex Manager] Init error full:", e);
-    console.error("[Regex Manager] message:", e?.message);
-    console.error("[Regex Manager] stack:", e?.stack);
-    showStatus(`Ошибка инициализации: ${e?.message || e}`);
+    console.error("[Regex Manager] Init error:", e);
   }
 });
-
-function showStatus(text) {
-  const container = $("#regex-manager-list");
-  if (!container.length) return;
-
-  container.html(`
-    <div class="regex-pack">
-      <div class="regex-pack-name">${escapeHtml(text)}</div>
-    </div>
-  `);
-}
 
 function updateCollapseState() {
   const body = $("#regex-manager-body");
   const btn = $("#regex-manager-collapse");
+
+  if (!body.length || !btn.length) return;
 
   if (window.RegexManagerData.collapsed) {
     body.addClass("collapsed");
@@ -100,39 +90,31 @@ async function reloadChatSafe() {
 }
 
 async function loadRegexPacks() {
-  const packFiles = [
-    "regex_thinking",
-    "regex_think",
-    "regex_infobloc",
-    "regex_buttons_panel",
-    "regex_HTML"
-  ];
-
   window.RegexManagerData.packs = {};
-  window.RegexManagerData.errors = [];
 
-  for (const file of packFiles) {
+  for (const file of PACK_FILES) {
     try {
-      const url = `/scripts/extensions/third-party/${extensionName}/regexes/${file}.json`;
-      const response = await fetch(url);
+      const response = await fetch(
+        `/scripts/extensions/third-party/${extensionName}/regexes/${file}.json?${Date.now()}`,
+        { cache: "no-store" }
+      );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} (${file})`);
+        throw new Error(`HTTP ${response.status}`);
       }
 
       const pack = await response.json();
 
       if (!pack || typeof pack !== "object") {
-        throw new Error(`Invalid JSON (${file})`);
+        throw new Error(`Invalid JSON in ${file}.json`);
       }
 
       if (!pack.id || !pack.scriptName || typeof pack.findRegex !== "string") {
-        throw new Error(`Missing required fields (${file})`);
+        throw new Error(`Missing required fields in ${file}.json`);
       }
 
       window.RegexManagerData.packs[file] = pack;
     } catch (e) {
-      window.RegexManagerData.errors.push(`${file}: ${e.message}`);
       console.error(`[Regex Manager] Load error ${file}:`, e);
     }
   }
@@ -140,35 +122,11 @@ async function loadRegexPacks() {
 
 function renderPackList() {
   const container = $("#regex-manager-list");
-
-  if (!container.length) {
-    throw new Error("Container #regex-manager-list not found");
-  }
+  if (!container.length) return;
 
   container.empty();
 
-  const entries = Object.entries(window.RegexManagerData.packs);
-
-  if (!entries.length) {
-    container.append(`
-      <div class="regex-pack">
-        <div class="regex-pack-name">Регексы не загрузились</div>
-        <div class="regex-manager-desc">${escapeHtml(window.RegexManagerData.errors.join(" | ") || "Не удалось загрузить файлы regexes")}</div>
-      </div>
-    `);
-    return;
-  }
-
-  if (window.RegexManagerData.errors.length) {
-    container.append(`
-      <div class="regex-pack">
-        <div class="regex-pack-name">Часть регексов не загрузилась</div>
-        <div class="regex-manager-desc">${escapeHtml(window.RegexManagerData.errors.join(" | "))}</div>
-      </div>
-    `);
-  }
-
-  for (const [id, pack] of entries) {
+  for (const [id, pack] of Object.entries(window.RegexManagerData.packs)) {
     const enabled = window.RegexManagerData.enabled.includes(id);
     const inputId = `regex-pack-${escapeId(id)}`;
 
@@ -184,7 +142,7 @@ function renderPackList() {
     container.append(html);
   }
 
-  container.find("input[type=checkbox]").on("change", async function () {
+  container.find('input[type="checkbox"]').off("change").on("change", async function () {
     const packId = $(this).data("pack");
     const checked = $(this).is(":checked");
 
