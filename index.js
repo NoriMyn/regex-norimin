@@ -14,8 +14,6 @@ if (!window.RegexManagerData) {
 
 jQuery(async () => {
   try {
-    const settingsHtml = await $.get(`/scripts/extensions/third-party/${extensionName}/settings.html`);
-
     const target = $("#extensions_settings2").length
       ? $("#extensions_settings2")
       : $("#extensions_settings");
@@ -24,7 +22,10 @@ jQuery(async () => {
       throw new Error("Extensions settings container not found");
     }
 
+    const settingsHtml = await $.get(`/scripts/extensions/third-party/${extensionName}/settings.html`);
     target.append(settingsHtml);
+
+    showStatus("Инициализация...");
 
     if (extension_settings[extensionName]) {
       window.RegexManagerData.enabled = Array.isArray(extension_settings[extensionName].enabled)
@@ -33,8 +34,12 @@ jQuery(async () => {
       window.RegexManagerData.collapsed = extension_settings[extensionName].collapsed === true;
     }
 
+    showStatus("Загрузка регексов...");
     await loadRegexPacks();
+
+    showStatus("Отрисовка списка...");
     renderPackList();
+
     updateCollapseState();
     cleanupManagedRegexes();
 
@@ -51,8 +56,20 @@ jQuery(async () => {
     console.error("[Regex Manager] Init error full:", e);
     console.error("[Regex Manager] message:", e?.message);
     console.error("[Regex Manager] stack:", e?.stack);
+    showStatus(`Ошибка инициализации: ${e?.message || e}`);
   }
 });
+
+function showStatus(text) {
+  const container = $("#regex-manager-list");
+  if (!container.length) return;
+
+  container.html(`
+    <div class="regex-pack">
+      <div class="regex-pack-name">${escapeHtml(text)}</div>
+    </div>
+  `);
+}
 
 function updateCollapseState() {
   const body = $("#regex-manager-body");
@@ -96,20 +113,21 @@ async function loadRegexPacks() {
 
   for (const file of packFiles) {
     try {
-      const response = await fetch(`/scripts/extensions/third-party/${extensionName}/regexes/${file}.json`);
+      const url = `/scripts/extensions/third-party/${extensionName}/regexes/${file}.json`;
+      const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status} (${file})`);
       }
 
       const pack = await response.json();
 
       if (!pack || typeof pack !== "object") {
-        throw new Error("Invalid JSON");
+        throw new Error(`Invalid JSON (${file})`);
       }
 
       if (!pack.id || !pack.scriptName || typeof pack.findRegex !== "string") {
-        throw new Error("Missing required fields");
+        throw new Error(`Missing required fields (${file})`);
       }
 
       window.RegexManagerData.packs[file] = pack;
@@ -122,6 +140,11 @@ async function loadRegexPacks() {
 
 function renderPackList() {
   const container = $("#regex-manager-list");
+
+  if (!container.length) {
+    throw new Error("Container #regex-manager-list not found");
+  }
+
   container.empty();
 
   const entries = Object.entries(window.RegexManagerData.packs);
