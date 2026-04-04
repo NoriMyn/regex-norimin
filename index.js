@@ -8,7 +8,7 @@ const PACK_FILES = [
   "regex_think",
   "regex_infobloc",
   "regex_buttons_panel",
-  "regex_HTML"
+  "regex_html"
 ];
 
 if (!window.RegexManagerData) {
